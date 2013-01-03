@@ -99,6 +99,11 @@ void spilcdPlot(int x, int y,int fb)
 	unsigned char *pVRAM;
 	unsigned char w;
 
+	if(x >= LCD_MAX_X)
+		return;
+	if(y >= LCD_MAX_Y)
+		return;
+
 	ly = y / 8;
 	my = y % 8;
 
@@ -274,6 +279,8 @@ int main(int argc, char **argv)
 		} if(linebuf[0] == (char)('L')){
 			displayLogo();
 		} if(linebuf[0] == (char)('S')){
+			// S コマンドは，下記の書式を取る．
+			// S X座標(0..127) Y座標(0..63) フォントインデックス(0..9) 表示文字列
 			int x;
 			int y;
 			int idx;
@@ -300,7 +307,7 @@ int main(int argc, char **argv)
 				continue;
 			if(strlen(tmp) <= 0)
 				continue;
-			printf("x=%d,y=%d,f=%d,s=[%s]\n",x,y,idx,tmp);
+			//printf("x=%d,y=%d,f=%d,s=[%s]\n",x,y,idx,tmp);
 			spilcdDrawStr(x,y,tmp,fontIdx);
 		}
 	}
