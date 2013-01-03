@@ -116,6 +116,48 @@ void spilcdClear(void)
 	memset(VRAM,0,sizeof(VRAM));
 }
 
+char *spilcdGetCharImage(int c,const struct font_desc *fontdesc) {
+    int w;
+    w = (fontdesc->width > 8) ? 2 : 1;
+    return ((char *)fontdesc->data) + ((w*fontdesc->height)*(c & 0xff));
+}
+
+/* It corresponds only when the width is below 16dots. */
+void spilcdDrawChar(int x,int y,int c,const struct font_desc *fontdesc) {
+    int w,h;
+    char *imagePtr = spilcdGetCharImage(c,fontdesc);
+    unsigned long mask = 0;
+    unsigned long maskTbl[] = { 0x80,0x8000 };
+    unsigned short yline;
+    int wcol;
+
+    for (h = 0;h < fontdesc->height;h++) {
+        mask = maskTbl[ (fontdesc->width - 1) / 8 ];
+        yline = (unsigned short)(*(imagePtr + 0));
+        if(fontdesc->width > 8){
+            yline = yline << 8;
+            yline |= (unsigned short)(*(imagePtr + 1));
+        }
+        for (w = 0;w < fontdesc->width;w++) {
+            wcol = (yline & mask) ? 1 : 0;
+            spilcdPlot(x+w,y+h,wcol);
+            mask = mask >> 1;
+        }
+        imagePtr += (fontdesc->width > 8) ? 2 : 1;
+    }
+}
+
+void spilcdDrawStr(int x,int y,char *str,const struct font_desc *fontdesc) {
+    char c;
+	int t_x = x;
+    int i = 0;
+    for (i = 0;(c = *(str+i)) != (char)('\0');i++) {
+        spilcdDrawChar(t_x,y,c,fontdesc);
+        t_x += fontdesc->width;
+    }
+}
+
+
 void displayLogo(void)
 {
 	int x,y;
@@ -231,6 +273,35 @@ int main(int argc, char **argv)
 			spilcdClear();
 		} if(linebuf[0] == (char)('L')){
 			displayLogo();
+		} if(linebuf[0] == (char)('S')){
+			int x;
+			int y;
+			int idx;
+			const struct font_desc *fontIdx;
+			char *saveptr;
+			char *tmp;
+			(void)strtok_r(linebuf," \t",&saveptr);
+			if((tmp = strtok_r(NULL," \t",&saveptr)) == NULL)
+				continue;
+			x = atoi(tmp);
+			if((x < 0) || (x >= LCD_MAX_X))
+				continue;
+			if((tmp = strtok_r(NULL," \t",&saveptr)) == NULL)
+				continue;
+			y = atoi(tmp);
+			if((y < 0) || (y >= LCD_MAX_Y))
+				continue;
+			if((tmp = strtok_r(NULL," \t",&saveptr)) == NULL)
+				continue;
+			if((idx = atoi(tmp)) >= 10)
+				continue;
+			fontIdx = fontTbl[idx];
+			if((tmp = strtok_r(NULL,"\n",&saveptr)) == NULL)
+				continue;
+			if(strlen(tmp) <= 0)
+				continue;
+			printf("x=%d,y=%d,f=%d,s=[%s]\n",x,y,idx,tmp);
+			spilcdDrawStr(x,y,tmp,fontIdx);
 		}
 	}
 
