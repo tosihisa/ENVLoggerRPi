@@ -25,6 +25,13 @@
 
 extern char *debian_xpm[];
 
+#define	LCD_MAX_X	(128)
+#define	LCD_MAX_Y	(64)
+
+// SPI LCD 用の VRAM．ここに一旦描いてコピーする．
+// イメージは，基本的に SPI LCD と同じ．
+static unsigned char VRAM[(LCD_MAX_X * LCD_MAX_Y)/8];
+
 static const int _SPILCD_A0_GPIO = 7;	// GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
 static const int _SPILCD_REG  = 0;
 static const int _SPILCD_DATA = 1;
@@ -49,26 +56,6 @@ void spilcdWrite(int rd,unsigned char data)
 	wiringPiSPIDataRW(0, &data, 1);
 }
 
-// set position (x, 8*y)
-void spilcdLocate(int x, int y){
-    spilcdWrite(_SPILCD_REG,0xb0 | (y & 0x0f)); // Page Address Set (see 2.4.3)
-    spilcdWrite(_SPILCD_REG,0x10 | (x >> 4 & 0x0f)); // Column Address Set (see 2.4.4)
-    spilcdWrite(_SPILCD_REG,x & 0x0f);
-}
- 
-void spilcdClear(void){
-    int x, y;
-    for(y = 0; y < 8; y++){
-        spilcdLocate(0, y);
-        for(x = 0; x < 128; x++) spilcdWrite(_SPILCD_DATA,0x00);
-    }
-}
- 
-void spilcdPlot(int x, int y){
-    spilcdLocate(x, y >> 3);
-    spilcdWrite(_SPILCD_DATA,1 << (y & 7));
-}
-
 int spilcdInit(void)
 {
 	pinMode(_SPILCD_A0_GPIO, OUTPUT) ;
@@ -87,23 +74,56 @@ int spilcdInit(void)
 	return 0;
 }
 
+// set position (x, 8*y)
+void spilcdLocate(int x, int y){
+    spilcdWrite(_SPILCD_REG,0xb0 | (y & 0x0f)); // Page Address Set (see 2.4.3)
+    spilcdWrite(_SPILCD_REG,0x10 | (x >> 4 & 0x0f)); // Column Address Set (see 2.4.4)
+    spilcdWrite(_SPILCD_REG,x & 0x0f);
+}
+ 
+void spilcdUpdate(void)
+{
+    int x, y;
+    for(y = 0; y < 8; y++){
+        spilcdLocate(0, y);
+        for(x = 0; x < 128; x++){
+			spilcdWrite(_SPILCD_DATA,VRAM[(LCD_MAX_X*y)+x]);
+		}
+    }
+}
+
+void spilcdPlot(int x, int y,int fb)
+{
+	int ly;
+	int my;
+	unsigned char *pVRAM;
+	unsigned char w;
+
+	ly = y / 8;
+	my = y % 8;
+
+	pVRAM = &VRAM[(LCD_MAX_X*ly)+x];
+	w = 1 << my;
+	if(fb){
+		*pVRAM |= w;
+	} else {
+		*pVRAM &= ~w;
+	}
+}
+
+void spilcdClear(void)
+{
+	memset(VRAM,0,sizeof(VRAM));
+}
+
 void displayLogo(void)
 {
 	int x,y;
 	unsigned char v = 0;
-	for(y = 0;y < 8;y++){
-		spilcdLocate(0, y);
+	for(y = 0;y < 64;y++){
 		for(x = 0; x < 128; x++){
-			v = 0;
-			v |= (debian_xpm[(y*8)+3+7][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+6][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+5][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+4][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+3][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+2][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+1][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian_xpm[(y*8)+3+0][x] == ' ') ? 1 : 0;
-			spilcdWrite(_SPILCD_DATA,v);
+			v = (debian_xpm[y+3][x] == ' ') ? 1 : 0;
+			spilcdPlot(x,y,v);
 		}
 	}
 }
@@ -201,6 +221,8 @@ int main(int argc, char **argv)
 		char linebuf[80+1];
 
 		fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
+		spilcdUpdate();
+
 		memset(linebuf,0,sizeof(linebuf));
 		if(fgets(linebuf,sizeof(linebuf)-1,fifofp) == NULL){
 			continue;
