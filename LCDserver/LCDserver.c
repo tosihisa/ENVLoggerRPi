@@ -1,11 +1,14 @@
 /*
- * LCD 表示サーバ．
+ * Raspberry Pi LCD 表示サーバ．
  * FSTN液晶モジュール（128×64/SPI）[AD-12864-SPI] を制御します．
  * ライセンスは GPLv2 です．
  * GPLv2 である由来は，この LCD 表示サーバのフォントは Linux カーネルの表示フォントを使用しており，
  * Linux カーネルが(例外条項付き)GPLv2 であるため，このソースコードも GPLv2 です．
  * なお，GPLv2 であるのはこのディレクトリ以下のソースコードを指し，他のディレクトリは，
  * 他のディレクトリのライセンスです．
+ *
+ * このプログラムは，「表示サーバ」として動きます．
+ * クライアントとの通信は，名前付きパイプで行います（とりあえず手っ取り早い通信方法なので）
  *
  * Copyright (c) Toshihisa Tanaka <tosihisa@netfort.gr.jp>
  */
@@ -99,9 +102,9 @@ void spilcdPlot(int x, int y,int fb)
 	unsigned char *pVRAM;
 	unsigned char w;
 
-	if(x >= LCD_MAX_X)
+	if((x < 0) || (x >= LCD_MAX_X))
 		return;
-	if(y >= LCD_MAX_Y)
+	if((y < 0) || (y >= LCD_MAX_Y))
 		return;
 
 	ly = y / 8;
