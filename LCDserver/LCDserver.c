@@ -12,15 +12,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+#include <limits.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-#include "debian.xpm"
+#include "debian.xpm"	//debian ロゴイメージ
 
 static const int _SPILCD_A0_GPIO = 7;	// GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
 static const int _SPILCD_REG  = 0;
@@ -96,18 +97,39 @@ int main(int argc, char **argv)
 	int opt;
 	int logo = 0;
 	int run_daemon = 0;
+	char fifoName[PATH_MAX];
+	FILE *fifofp;
+	FILE *debugfp = stdout;
 
-	while ((opt = getopt(argc, argv, "ld")) != -1){
+
+	strcpy(fifoName,"/tmp/LCDserver.fifo");
+
+	if((debugfp = fopen("/dev/null","r+b")) == NULL){
+		perror("/dev/null");
+		return 6;
+	}
+
+	while ((opt = getopt(argc, argv, "Dldf:")) != -1){
 		switch(opt){
+			case 'D':
+				fclose(debugfp);
+				debugfp = stdout;
+				break;
 			case 'l':
 				logo = 1;
 				break;
 			case 'd':
 				run_daemon = 1;
+			case 'f':
+				strncpy(fifoName,optarg,sizeof(fifoName)-1);
+				fifoName[sizeof(fifoName)-1] = (char)('\0');
+				break;
 			default:
 				break;
 		}
 	}
+
+	fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
 
 	if(wiringPiSetup () < 0)
 	{
@@ -120,6 +142,21 @@ int main(int argc, char **argv)
 		fprintf(stderr,"wiringPiSPISetup failed\n");
 		return 2;
  	}
+
+	if(1){
+		mode_t o_u;
+		o_u = umask(0011);
+		unlink(fifoName);
+		if(mkfifo(fifoName,0666) != 0){
+			perror("mkfifo()");
+			return 5;
+		}
+		(void)umask(o_u);
+		if((fifofp = fopen(fifoName,"r+b")) == NULL){
+			perror("fopen()");
+			return 6;
+		}
+	}
 
 	if(run_daemon){
 		if(daemon(0,0) != 0){
@@ -140,10 +177,23 @@ int main(int argc, char **argv)
 	spilcdInit();
 	spilcdClear();
 
-	sleep(1);
-
 	if(logo){
 		displayLogo();
+	}
+
+	while(1){
+		char linebuf[80+1];
+
+		fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
+		memset(linebuf,0,sizeof(linebuf));
+		if(fgets(linebuf,sizeof(linebuf)-1,fifofp) == NULL){
+			continue;
+		}
+		if(linebuf[0] == (char)('C')){
+			spilcdClear();
+		} if(linebuf[0] == (char)('L')){
+			displayLogo();
+		}
 	}
 
 	return 0;
