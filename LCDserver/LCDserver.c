@@ -21,11 +21,27 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-#include "debian.xpm"	//debian ロゴイメージ
+#include "linuxfont/linuxfont.h"
+
+extern char *debian_xpm[];
 
 static const int _SPILCD_A0_GPIO = 7;	// GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
 static const int _SPILCD_REG  = 0;
 static const int _SPILCD_DATA = 1;
+
+static const struct font_desc *fontTbl[] = {
+	&font_vga_8x8,		// 0
+	&font_vga_8x16,		// 1
+	&font_pearl_8x8,	// 2
+	&font_vga_6x11,		// 3
+	&font_7x14,			// 4
+	&font_10x18,		// 5
+	&font_sun_8x16,		// 6
+	&font_sun_12x22,	// 7
+	&font_acorn_8x8,	// 8
+	&font_mini_4x6,		// 9
+	NULL
+};
 
 void spilcdWrite(int rd,unsigned char data)
 {
@@ -79,14 +95,14 @@ void displayLogo(void)
 		spilcdLocate(0, y);
 		for(x = 0; x < 128; x++){
 			v = 0;
-			v |= (debian[(y*8)+3+7][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+6][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+5][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+4][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+3][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+2][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+1][x] == ' ') ? 1 : 0; v = v << 1;
-			v |= (debian[(y*8)+3+0][x] == ' ') ? 1 : 0;
+			v |= (debian_xpm[(y*8)+3+7][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+6][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+5][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+4][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+3][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+2][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+1][x] == ' ') ? 1 : 0; v = v << 1;
+			v |= (debian_xpm[(y*8)+3+0][x] == ' ') ? 1 : 0;
 			spilcdWrite(_SPILCD_DATA,v);
 		}
 	}

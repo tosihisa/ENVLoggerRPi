@@ -1,5 +1,5 @@
 /* XPM */
-static char *debian[] = {
+char *debian_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "128 64 2 1 ",
 "  c black",
