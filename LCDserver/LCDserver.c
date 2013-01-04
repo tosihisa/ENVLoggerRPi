@@ -229,6 +229,7 @@ int main(int argc, char **argv)
 				break;
 			case 'd':
 				run_daemon = 1;
+				break;
 			case 'f':
 				strncpy(fifoName,optarg,sizeof(fifoName)-1);
 				fifoName[sizeof(fifoName)-1] = (char)('\0');
