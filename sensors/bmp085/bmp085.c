@@ -102,6 +102,7 @@ int main(void)
 	int bmp085_addr = 0xEE >> 1;
 	int timer_fd;
 	FILE *fp;
+	FILE *LCDfp;
  
 	printf("***** BMP085 READ *****\n");
  
@@ -124,6 +125,8 @@ int main(void)
 		perror("fopen");
 		return 40;
 	}
+
+	LCDfp = fopen("/tmp/LCDserver.fifo","r+b");
 
 	if(daemon(0,0) != 0){
 		perror("daemon");
@@ -252,9 +255,17 @@ int main(void)
 				strftime(tmstr,sizeof(tmstr)-1,"%Y-%m-%dT%H:%M:%S",&nowtm);
 				//fprintf(fp,"%s.%ldZ,",tmstr,s_t.tv_usec);
 				fprintf(fp,"%sZ,",tmstr);
+				if(LCDfp){
+					fprintf(LCDfp,"S 0 0 3 %sZ\n",tmstr);
+				}
 			}
 			fprintf(fp,"T,%f,P,%f\n",temperature,pressure);
 			fflush(fp);
+			if(LCDfp){
+				fprintf(LCDfp,"S 0 16 1 T:%7.2f\n",temperature);
+				fprintf(LCDfp,"S 0 32 1 P:%7.2f\n",pressure);
+				fflush(LCDfp);
+			}
 		}
 	}
 	
