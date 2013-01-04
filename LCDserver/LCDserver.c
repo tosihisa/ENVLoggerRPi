@@ -21,6 +21,7 @@
 #include <string.h>
 #include <limits.h>
 #include <signal.h>
+#include <time.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -36,7 +37,9 @@ extern char *debian_xpm[];
 // イメージは，基本的に SPI LCD と同じ．
 static unsigned char VRAM[(LCD_MAX_X * LCD_MAX_Y)/8];
 
-static const int _SPILCD_A0_GPIO = 7;	// GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
+static const int _SPILCD_A0_GPIO = 7;	// A0 ピンアサイン．GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
+static const int _SPILCD_BL_GPIO = 3;	// バックライト GPIO 22番を使用する．3 と書いているが，これは wiringPi の使用による．
+static const int _SPILCD_RS_GPIO = 0;	// リセット GPIO 17番を使用する．0 と書いているが，これは wiringPi の使用による．
 static const int _SPILCD_REG  = 0;
 static const int _SPILCD_DATA = 1;
 
@@ -65,6 +68,17 @@ void spilcdWrite(int rd,unsigned char data)
 int spilcdInit(void)
 {
 	pinMode(_SPILCD_A0_GPIO, OUTPUT) ;
+	pinMode(_SPILCD_BL_GPIO, OUTPUT) ;
+	pinMode(_SPILCD_RS_GPIO, OUTPUT) ;
+
+	if(1){
+		struct timespec req;
+		digitalWrite(_SPILCD_RS_GPIO,0);
+		req.tv_sec = 0;
+		req.tv_nsec = 50 * 1000 * 1000;
+		nanosleep(&req,NULL);
+		digitalWrite(_SPILCD_RS_GPIO,1);
+	}
 
 	spilcdWrite(_SPILCD_REG,0xa2);    // (11) LCD Bias Set ... 1/9 bias (see 2.4.11)
 	spilcdWrite(_SPILCD_REG,0xa0);    // (8)  ADC Select ... normal (see 2.4.8)
@@ -289,6 +303,7 @@ int main(int argc, char **argv)
 
 	spilcdInit();
 	spilcdClear();
+	digitalWrite(_SPILCD_BL_GPIO,1);
 
 	if(logo){
 		displayLogo();
@@ -306,9 +321,9 @@ int main(int argc, char **argv)
 		}
 		if(linebuf[0] == (char)('C')){
 			spilcdClear();
-		} if(linebuf[0] == (char)('L')){
+		} else if(linebuf[0] == (char)('L')){
 			displayLogo();
-		} if(linebuf[0] == (char)('S')){
+		} else if(linebuf[0] == (char)('S')){
 			// S コマンドは，下記の書式を取る．
 			// S X座標(0..127) Y座標(0..63) フォントインデックス(0..9) 表示文字列
 			int x;
@@ -339,12 +354,17 @@ int main(int argc, char **argv)
 				continue;
 			//printf("x=%d,y=%d,f=%d,s=[%s]\n",x,y,idx,tmp);
 			spilcdDrawStr(x,y,tmp,fontTbl[idx]);
+		} else if(linebuf[0] == (char)('B')){
+			digitalWrite(_SPILCD_BL_GPIO,1);
+		} else if(linebuf[0] == (char)('b')){
+			digitalWrite(_SPILCD_BL_GPIO,0);
 		}
 	}
 
 	fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
 	spilcdDrawStr(0,0,"LCDserver:stop",fontTbl[0]);
 	spilcdUpdate();
+	digitalWrite(_SPILCD_BL_GPIO,0);
 
 	return 0;
 }
