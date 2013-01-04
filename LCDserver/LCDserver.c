@@ -20,11 +20,12 @@
 #include <fcntl.h>
 #include <string.h>
 #include <limits.h>
+#include <signal.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-#include "linuxfont/linuxfont.h"
+#include "linuxfont.h"
 
 extern char *debian_xpm[];
 
@@ -38,6 +39,8 @@ static unsigned char VRAM[(LCD_MAX_X * LCD_MAX_Y)/8];
 static const int _SPILCD_A0_GPIO = 7;	// GPIO 4番を使用する．7 と書いているが，これは wiringPi の使用による．
 static const int _SPILCD_REG  = 0;
 static const int _SPILCD_DATA = 1;
+
+static int running = 1;
 
 static const struct font_desc *fontTbl[] = {
 	&font_vga_8x8,		// 0
@@ -178,6 +181,12 @@ void displayLogo(void)
 	}
 }
 
+void sigHandler(int signum)
+{
+	(void)signum;
+	running = 0;
+}
+
 int main(int argc, char **argv)
 {
 	int opt;
@@ -229,8 +238,14 @@ int main(int argc, char **argv)
 		return 2;
  	}
 
+	/* 描画命令受付用の名前付きパイプを作る．
+ 	   これは，デーモン化するよりも前に作成する．
+	   デーモン化に成功すれば，描画命令受付用の
+	   名前付きパイプも必ず存在することを保証する */
 	if(1){
 		mode_t o_u;
+		/* 名前付きパイプは，どのプロセスからも書き込めるようにする */
+		/* セキュリティ的に厳しくしたい場合は，ここのアクセス権を適宜設定すれば良い */
 		o_u = umask(0011);
 		unlink(fifoName);
 		if(mkfifo(fifoName,0666) != 0){
@@ -260,6 +275,18 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/* ここまで来ると，root 権限は不要 */
+	setgid(65534);	/* nobody */
+	setuid(65534);	/* nobody */
+
+	if(1){
+		struct sigaction act;
+		memset(&act,0,sizeof(act));
+		act.sa_handler = sigHandler;
+		sigaction(SIGINT,&act,NULL);
+		sigaction(SIGTERM,&act,NULL);
+	}
+
 	spilcdInit();
 	spilcdClear();
 
@@ -267,7 +294,7 @@ int main(int argc, char **argv)
 		displayLogo();
 	}
 
-	while(1){
+	while(running){
 		char linebuf[80+1];
 
 		fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
@@ -287,7 +314,6 @@ int main(int argc, char **argv)
 			int x;
 			int y;
 			int idx;
-			const struct font_desc *fontIdx;
 			char *saveptr;
 			char *tmp;
 			(void)strtok_r(linebuf," \t",&saveptr);
@@ -305,15 +331,20 @@ int main(int argc, char **argv)
 				continue;
 			if((idx = atoi(tmp)) >= 10)
 				continue;
-			fontIdx = fontTbl[idx];
+			if(idx < 0)
+				continue;
 			if((tmp = strtok_r(NULL,"\n",&saveptr)) == NULL)
 				continue;
 			if(strlen(tmp) <= 0)
 				continue;
 			//printf("x=%d,y=%d,f=%d,s=[%s]\n",x,y,idx,tmp);
-			spilcdDrawStr(x,y,tmp,fontIdx);
+			spilcdDrawStr(x,y,tmp,fontTbl[idx]);
 		}
 	}
+
+	fprintf(debugfp,"%s:%d\n",__FILE__,__LINE__);
+	spilcdDrawStr(0,0,"LCDserver:stop",fontTbl[0]);
+	spilcdUpdate();
 
 	return 0;
 }
