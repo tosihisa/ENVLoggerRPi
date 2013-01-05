@@ -73,7 +73,7 @@ void UBX_CalcSum(unsigned char *str,int len,unsigned char *sum)
     }
 }
 
-int UBX_WaitAck(int fd,struct UBXPacket_s *info)
+int UBX_WaitAck(int fd/*,struct UBXPacket_s *info*/)
 {
     UBXPacket.cjobst = 0;
 	unsigned char buf;
@@ -102,6 +102,7 @@ int main(int argc,char *argv[])
 	struct termios s_term;
 	char *ttyName = "/dev/ttyUSB0";
 	int ttyFd = -1;
+	unsigned long UBXCount = 0;
 
 	UBXPacket.cjobst = 0;
 
@@ -214,21 +215,49 @@ int main(int argc,char *argv[])
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x21,0x01,0xFF,0xFF }, //NAV-TIMEUTC (0x01 0x21)
             { 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF }, //END
         };
-        int i,j;
+        int j;
         int isAck;
 
         for(j=0;chkStr[j][0] != 0x00;j++){
             UBX_CalcSum(&chkStr[j][2],7,&chkStr[j][9]);
-printf("AAAA\n");
 			write(ttyFd,chkStr[j],sizeof(chkStr[0]));
 			tcdrain(ttyFd);
-printf("HEHEH\n");
-            isAck = UBX_WaitAck(ttyFd,&UBXPacket);
+            isAck = UBX_WaitAck(ttyFd/*,&UBXPacket*/);
             printf("%d : SET UBX Rate : %s\n",j,(isAck == 1) ? "ACK" : "NAK");
        }
     }
     UBXPacket.cjobst = 0;
 
+	while(1){
+		char buf;
+		int year=0;
+		int mon=0;
+		int day=0;
+		int hour=0;
+		int min=0;
+		int sec=0;
+		if(read(ttyFd,&buf,1) == 1){
+            if(UBXPacket_Parse(&UBXPacket,buf) == 100){
+                UBXCount++;
+                if((UBXPacket.cls == 0x01) && (UBXPacket.id == 0x21)){
+                    /* NAV-TIMEUTC */
+                    year = (((unsigned short)UBXPacket.body[13]) << 8) | UBXPacket.body[12];
+                    mon  = UBXPacket.body[14];
+                    day  = UBXPacket.body[15];
+                    hour = UBXPacket.body[16];
+                    min  = UBXPacket.body[17];
+                    sec  = UBXPacket.body[18];
+					printf("%10lu,%04d-%02d-%02d %02d:%02d:%02d\n",UBXCount,year,mon,day,hour,min,sec);
+                }
+                printf("\t\t%ld : GET UBX Packet (Class=0x%02X,ID=0x%02X,LEN=%d)\n",
+                            UBXCount,
+                            UBXPacket.cls,
+                            UBXPacket.id,
+                            UBXPacket.len );
+                UBXPacket.cjobst = 0;
+            }
+		}
+	}
 	return 0;
 }
-
+ 
