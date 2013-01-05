@@ -78,6 +78,12 @@ int main(int argc,char *argv[])
 	char *ttyName = "/dev/ttyUSB1";
 	int ttyFd = -1;
 
+	if(argc >= 2){
+		if(argv[1] != NULL){
+			ttyName = argv[1];
+		}
+	}
+
 	if((ttyFd = open(ttyName,O_RDWR | O_NOCTTY)) < 0){
 		perror("open()");
 		return 1;
@@ -108,6 +114,7 @@ int main(int argc,char *argv[])
 		return 2;
 	}
 
+	tcflush(ttyFd,TCIOFLUSH);
 	while(1){
 		unsigned char ign;
 		if(read(ttyFd,&ign,sizeof(ign)) <= 0){
