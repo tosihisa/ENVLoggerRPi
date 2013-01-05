@@ -15,3 +15,11 @@
 *.exe
 *.out
 *.app
+
+LCDserver/LCDserver
+sensors/bmp085/bmp085
+sensors/bmp085/bmp085.log
+sensors/co2_k30/co2_k30
+sensors/sht25/sht25
+sensors/sht25/sht25.log
+
