@@ -88,7 +88,7 @@ int main(void)
 
 	LCDfp = fopen("/tmp/LCDserver.fifo","r+b");
 
-	if(0){
+	if(1){
 		if(daemon(0,0) != 0){
 			perror("daemon");
 			return 30;
