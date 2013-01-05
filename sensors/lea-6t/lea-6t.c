@@ -214,6 +214,8 @@ int main(int argc,char *argv[])
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x02,0x20,0x01,0xFF,0xFF }, //RXM-SVSI (0x02 0x20)
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x21,0x01,0xFF,0xFF }, //NAV-TIMEUTC (0x01 0x21)
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0xFF,0xFF }, //NAV-POSLLH (0x01 0x02)
+            { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x04,0x01,0xFF,0xFF }, //NAV-DOP (0x01 0x04)
+            { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x06,0x01,0xFF,0xFF }, //NAV-SOL (0x01 0x06)
             { 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF }, //END
         };
         int j;
@@ -257,6 +259,40 @@ int main(int argc,char *argv[])
 					memcpy(&lon,&UBXPacket.body[4],sizeof(lon));
 					memcpy(&lat,&UBXPacket.body[8],sizeof(lon));
 					printf("%10lu,lon:%ld.%ld lat:%ld.%ld\n",UBXCount,lon/scale,lon%scale,lat/scale,lat%scale);
+				}
+                if((UBXPacket.cls == 0x01) && (UBXPacket.id == 0x02)){
+					unsigned short DOP[7];
+					memcpy(DOP,&UBXPacket.body[4],sizeof(DOP));
+					printf("gDOP=%-5d " \
+						   "pDOP=%-5d " \
+						   "tDOP=%-5d " \
+						   "vDOP=%-5d " \
+						   "hDOP=%-5d " \
+						   "nDOP=%-5d " \
+						   "eDOP=%-5d " \
+						   "\n"
+						   ,DOP[0]/100
+						   ,DOP[1]/100
+						   ,DOP[2]/100
+						   ,DOP[3]/100
+						   ,DOP[4]/100
+						   ,DOP[5]/100
+						   ,DOP[6]/100);
+				}
+                if((UBXPacket.cls == 0x01) && (UBXPacket.id == 0x06)){
+					char *gpsfix[] = {
+						"No Fix",
+						"Dead Reckoning only",
+						"2D-Fix",
+						"3D-Fix",
+						"GPS + dead reckoning combined",
+						"Time only fix",
+						"UNKNOWN",
+					};
+					if(UBXPacket.body[10] >= 6){
+						UBXPacket.body[10] = 6;
+					}
+					printf("\t\t%ld : FIX[%s]\n",UBXCount,gpsfix[ UBXPacket.body[10] ]);
 				}
                 printf("\t\t%ld : GET UBX Packet (Class=0x%02X,ID=0x%02X,LEN=%d)\n",
                             UBXCount,
