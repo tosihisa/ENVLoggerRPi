@@ -213,6 +213,7 @@ int main(int argc,char *argv[])
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x02,0x11,0x01,0xFF,0xFF }, //RXM-SFRB (0x02 0x11)
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x02,0x20,0x01,0xFF,0xFF }, //RXM-SVSI (0x02 0x20)
             { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x21,0x01,0xFF,0xFF }, //NAV-TIMEUTC (0x01 0x21)
+            { 0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0xFF,0xFF }, //NAV-POSLLH (0x01 0x02)
             { 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF }, //END
         };
         int j;
@@ -236,6 +237,8 @@ int main(int argc,char *argv[])
 		int hour=0;
 		int min=0;
 		int sec=0;
+		long lat;
+		long lon;
 		if(read(ttyFd,&buf,1) == 1){
             if(UBXPacket_Parse(&UBXPacket,buf) == 100){
                 UBXCount++;
@@ -249,6 +252,12 @@ int main(int argc,char *argv[])
                     sec  = UBXPacket.body[18];
 					printf("%10lu,%04d-%02d-%02d %02d:%02d:%02d\n",UBXCount,year,mon,day,hour,min,sec);
                 }
+                if((UBXPacket.cls == 0x01) && (UBXPacket.id == 0x02)){
+					long scale = 10000000;
+					memcpy(&lon,&UBXPacket.body[4],sizeof(lon));
+					memcpy(&lat,&UBXPacket.body[8],sizeof(lon));
+					printf("%10lu,lon:%ld.%ld lat:%ld.%ld\n",UBXCount,lon/scale,lon%scale,lat/scale,lat%scale);
+				}
                 printf("\t\t%ld : GET UBX Packet (Class=0x%02X,ID=0x%02X,LEN=%d)\n",
                             UBXCount,
                             UBXPacket.cls,
